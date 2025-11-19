@@ -143,6 +143,7 @@ if path:
 ax.add_patch(plt.Rectangle((start[1]-0.5, start[0]-0.5), 1, 1, color='green'))
 ax.add_patch(plt.Rectangle((goal[1]-0.5, goal[0]-0.5), 1, 1, color='red'))
 
+
 plt.xticks([])
 plt.yticks([])
 plt.show()
