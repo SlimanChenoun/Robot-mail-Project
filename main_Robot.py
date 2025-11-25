@@ -1,8 +1,19 @@
-import numpy as np #Je sais pas
-import matplotlib.pyplot as plt # Pour afficher le visuel quand on run
-import math # Pour gérer la partie de déplacement en diagonal en heuristique euclidienne
-from queue import PriorityQueue #Pour afficherle chemin qu'on a prit
-import random #Je sais pas
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+from queue import PriorityQueue
+import random
+from itertools import permutations
+
+def ajouter_cout_zones(grid, zones):
+    cout_ajoute = np.zeros(grid.shape)
+    for zone in zones:
+        x1, y1, x2, y2, bonus = zone
+        for i in range(min(x1, x2), max(x1, x2) + 1):
+            for j in range(min(y1, y2), max(y1, y2) + 1):
+                if 0 <= i < grid.shape[0] and 0 <= j < grid.shape[1]:
+                    cout_ajoute[i, j] = bonus
+    return cout_ajoute
 
 # Le 0 c'est un obstacle et le 1 un chemin libre
 grid = np.array([ #Je déclare le grid 
@@ -81,22 +92,52 @@ grid = np.array([ #Je déclare le grid
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 1, 1,	1, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0]
 ])
 
+# Dimensions de la grille
 ROWS, COLS = grid.shape
 
-# Voisins avec déplacements diagonaux
-def neighbors(pos):
+ZONES_PAR_DEFAUT = [
+    (68, 73, 37, 33, 0.25),   # Zone 1: coût bonus de 0.75
+]
+
+num_destinations = int(input("Nombre de livraisons : "))
+
+# Événement route bouché fonction de Sliman
+n_event = int(input("Combien de travaux à générer?: "))
+for i in range(n_event):
+    coordonnee_travaux = input(f"rentrer les coordonné des travaux/event {i+1} (x,y): ")
+    x, y = map(int, coordonnee_travaux.split(','))
+    grid[x, y] = 0
+
+#Fonction Haemmeryck
+#
+#
+#
+#
+
+# --- CRÉATION DES ZONES À COÛT BONUS ---
+cout_ajoute = ajouter_cout_zones(grid, ZONES_PAR_DEFAUT)  # ← Utilisation ici
+
+# --- NEIGHBORS avec coûts zones (EN NOMBRE DE CASES) ---
+def neighbors(pos, cout_ajoute):
     x, y = pos
+    # Déplacements possibles (4 directions + diagonales)
     for dx, dy in [(-1,0),(1,0),(0,-1),(0,1), (-1,-1),(-1,1),(1,-1),(1,1)]:
         nx, ny = x + dx, y + dy
         if 0 <= nx < ROWS and 0 <= ny < COLS and grid[nx][ny] == 1:
-            yield (nx, ny), math.sqrt(dx**2 + dy**2)
+            # Coût en nombre de cases : 1 pour horizontal/vertical, √2 pour diagonales = Il y a un rapport de 
+            # 0.7 = 1.414 entre le déplacement diagonale et vertical/horizontal
+            cout_base = 1.0 if dx == 0 or dy == 0 else math.sqrt(2)
+            # Ajout du coût bonus de la zone
+            cout_deplacement = cout_base + cout_ajoute[nx, ny]
+            yield (nx, ny), cout_deplacement
 
-# Heuristique euclidienne
+# --- Heuristique (distance Manhattan pour coût en cases) ---
 def heuristic(a, b):
-    return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+    # Distance de Manhattan pour être cohérent avec le coût en cases
+    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
-# Algorithme A*
-def astar(start, goal):
+# --- ASTAR avec coûts zones ---
+def astar(start, goal, cout_ajoute):
     open_set = PriorityQueue()
     open_set.put((0, start))
     came_from = {}
@@ -104,6 +145,7 @@ def astar(start, goal):
     
     while not open_set.empty():
         _, current = open_set.get()
+
         if current == goal:
             path = []
             total_cost = g_score[current]
@@ -113,43 +155,105 @@ def astar(start, goal):
             path.append(start)
             return path[::-1], total_cost
         
-        for neighbor, move_cost in neighbors(current):
+        for neighbor, move_cost in neighbors(current, cout_ajoute):
             tentative_g = g_score[current] + move_cost
+
             if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                came_from[neighbor] = current
                 g_score[neighbor] = tentative_g
                 f_score = tentative_g + heuristic(neighbor, goal)
                 open_set.put((f_score, neighbor))
-                came_from[neighbor] = current
-    return None, None
+    
+    return None, float('inf')
 
-# Sélection aléatoire du départ et de la destination sur des cases libres
+# --- FIND_OPTIMAL_ROUTE avec coûts zones ---
+def find_optimal_route(start, destinations, cout_ajoute, max_permutations=1000):
+    if len(destinations) <= 8:
+        all_orders = list(permutations(destinations))
+    else:
+        all_orders = [random.sample(destinations, len(destinations)) for _ in range(max_permutations)]
+    
+    best_cost = float('inf')
+    best_order = None
+    best_paths = None
+    
+    for order in all_orders:
+        current_position = start
+        total_cost = 0
+        paths = []
+        feasible = True
+        
+        for dest in order:
+            path, cost = astar(current_position, dest, cout_ajoute)
+            if path is None:
+                feasible = False
+                break
+            total_cost += cost
+            paths.append((path, cost))
+            current_position = dest
+        
+        if feasible and total_cost < best_cost:
+            best_cost = total_cost
+            best_order = order
+            best_paths = paths
+    
+    return best_order, best_paths, best_cost
+
+# --- Sélection des destinations ---
 free_cells = [(i,j) for i in range(ROWS) for j in range(COLS) if grid[i][j] == 1]
-start = random.choice(free_cells)
-goal = random.choice(free_cells)
-while goal == start:
-    goal = random.choice(free_cells)
+start = (56, 0)
 
-# Calcul du chemin
-path, cost = astar(start, goal)
+destinations = random.sample([cell for cell in free_cells if cell != start], num_destinations)
 
-# Affichage
-fig, ax = plt.subplots()
-ax.imshow(grid, cmap='gray')
+# --- Appel avec les zones de coût bonus ---
+optimal_order, optimal_paths, total_cost = find_optimal_route(start, destinations, cout_ajoute)
 
-if path:
-    for (x, y) in path:
-        ax.add_patch(plt.Rectangle((y-0.5, x-0.5), 1, 1, color='yellow'))
+# --- Affichage ---
+if optimal_order:
+    complete_path = []
+    for i, (path, cost) in enumerate(optimal_paths):
+        if i < len(optimal_paths) - 1:
+            complete_path.extend(path[:-1])
+        else:
+            complete_path.extend(path)
+        print(f"Étape {i+1}: {path[0]} -> {path[-1]} | Coût: {cost:.2f} cases")
+    
+    fig, ax = plt.subplots(figsize=(12, 10))
+    ax.imshow(grid, cmap='gray')
+    
+    # Affichage des zones à coût bonus
+    for zone in ZONES_PAR_DEFAUT:
+        x1, y1, x2, y2, bonus = zone
+        ax.add_patch(plt.Rectangle((min(y1,y2)-0.5, min(x1,x2)-0.5), 
+                                 abs(y2-y1)+1, abs(x2-x1)+1,
+                                 color='orange', alpha=0.3, label=f'Zone +{bonus} case(s)'))
 
-ax.add_patch(plt.Rectangle((start[1]-0.5, start[0]-0.5), 1, 1, color='green'))
-ax.add_patch(plt.Rectangle((goal[1]-0.5, goal[0]-0.5), 1, 1, color='red'))
+    # Affichage du chemin
+    for (x, y) in complete_path:
+        ax.add_patch(plt.Rectangle((y-0.5, x-0.5), 1, 1, color='yellow', alpha=0.6))
+
+    # Point de départ
+    ax.add_patch(plt.Rectangle((start[1]-0.5, start[0]-0.5), 1, 1,
+                               color='green', label='Départ (Poste)'))
+    
+    # Destinations
+    colors = ['red']
+    for i, dest in enumerate(optimal_order):
+        color = colors[i % len(colors)]
+        ax.add_patch(plt.Rectangle((dest[1]-0.5, dest[0]-0.5), 1, 1, color=color))
+        ax.text(dest[1], dest[0], str(i+1), ha='center', va='center',
+                fontweight='bold', fontsize=12, color='white')
+
+    plt.xticks([])
+    plt.yticks([])
+    plt.legend()
+    plt.title(f"Parcours optimal — Coût total : {total_cost:.2f} cases")
+    plt.show()
+
+    print("\nRésumé du parcours :")
+    print(" → ".join([str(pt) for pt in [start] + list(optimal_order)]))
+    print(f"\nCoût total : {total_cost:.2f} cases")
 
 
-plt.xticks([])
-plt.yticks([])
-plt.show()
 
-if path:
-    print(f"Chemin trouvé de {start} à {goal}")
-    print(f"Coût total du chemin : {cost:.2f}")
-else:
-    print("Aucun chemin trouvé.")
+    
