@@ -136,7 +136,13 @@ def heuristic(a, b):
     # Distance de Manhattan pour être cohérent avec le coût en cases
     return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
-# --- ASTAR avec coûts zones ---
+#-- Rajouter Djikstra
+#
+#
+#
+
+
+# ASTAR
 def astar(start, goal, cout_ajoute):
     open_set = PriorityQueue()
     open_set.put((0, start))
