@@ -98,7 +98,7 @@ ROWS, COLS = grid.shape
 centreville = [
     (68, 73, 37, 33, 0.25),   # Zone 1: coût bonus de 0.25
 ]
-
+cout_ajoute = ajouter_cout_zones(grid, centreville)
 num_destinations = int(input("Nombre de livraisons : "))
 
 # Événement route bouché fonction de Sliman
@@ -106,12 +106,7 @@ n_event = int(input("Combien de travaux/évenements à générer?: "))
 for i in range(n_event):
     coordonnee_travaux = input(f"rentrer les coordonné des travaux/events {i+1} (x,y): ")
     x, y = map(int, coordonnee_travaux.split(','))
-    if 0 <= x < ROWS and 0 <= y < COLS:
-        grid[x, y] = 0
-    else:
-        print(f"Coordonnées invalides: ({x}, {y})")
 
-cout_ajoute = ajouter_cout_zones(grid, centreville)
 
 # --- déplacement en diagonal avec coûts zones (EN NOMBRE DE CASES) ---
 def deplacement_diagonal(pos, cout_ajoute):
@@ -144,12 +139,16 @@ def dijkstra(depot, goal, cout_ajoute):
         explored += 1
 
         if current == goal:
+            # Chemin reconstruit proprement
             path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
+            node = goal
+            while node in came_from:
+                path.append(node)
+                node = came_from[node]
             path.append(depot)
-            return path[::-1], g_score[goal], explored
+            path.reverse()
+
+            return path, g_score[goal], explored
         
         for neighbor, move_cost in deplacement_diagonal(current, cout_ajoute):
             tentative_g = g_score.get(current, float('inf')) + move_cost
@@ -160,6 +159,7 @@ def dijkstra(depot, goal, cout_ajoute):
     
     return [], float('inf'), explored
 
+
 # ASTAR avec heapq (corrigé)
 def astar(depot, goal, cout_ajoute, h_type="euclidien"):
     open_set = []
@@ -167,19 +167,21 @@ def astar(depot, goal, cout_ajoute, h_type="euclidien"):
     came_from = {}
     g_score = {depot: 0}
     explored = 0
-    
+
     while open_set:
         current_f, current = heapq.heappop(open_set)
         explored += 1
 
         if current == goal:
             path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
+            node = current  # Utilisation d'une variable temporaire pour reconstruire le chemin
+            while node in came_from:
+                path.append(node)
+                node = came_from[node]
             path.append(depot)
-            return path[::-1], g_score[current], explored
-        
+            path.reverse()
+            return path, g_score[current], explored
+
         for neighbor, move_cost in deplacement_diagonal(current, cout_ajoute):
             tentative_g = g_score.get(current, float('inf')) + move_cost
             if tentative_g < g_score.get(neighbor, float('inf')):
@@ -187,8 +189,10 @@ def astar(depot, goal, cout_ajoute, h_type="euclidien"):
                 g_score[neighbor] = tentative_g
                 f_score = tentative_g + heuristic(neighbor, goal, h_type)
                 heapq.heappush(open_set, (f_score, neighbor))
-    
+
     return [], float('inf'), explored
+
+
 
 # -----------------------------
 # Planification gloutonne multi-colis
