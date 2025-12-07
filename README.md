@@ -1,6 +1,9 @@
-# Robot-mail-Project
-<<<<<<< HEAD
-Il faudra créer un excel avec des fonctions VBA pour automatiser la création de la grille matricielle
-=======
-Dépôt git du robot courriel d'algorithmie. Tu peut créer des programmes sur vs code et les déposer ici, notamment pour les fonctions 
->>>>>>> a1b715ea0683fdb0de6095ad60d4b920985108a7
+Bienvenue dans cet masterclass de code, qui est le projet d'algorithmique commun d'Haemmeryck et Sliman. 
+1 - Ouvrez le programme sur VSCode (via ubuntu si possible) 
+2 - Pour lancer le programme, allez sur VSCode ==> Terminal ==> New Terminal (ou Nouveau terminal si vous n'êtes pas anglophone ;).
+3 - Si le terminal est ouvert, il faut qu'il soit en Powershell (ne me demandez pas pourquoi, c'est comme ça)
+4 - Puis tapez "python .\main_Robot.py
+
+Remarque : On ne peut pas lancer le run depuis le bouton magique parce que nous avons besoin de rentrez des valeurs (nombres de livraisons, coordonnées des travaux).
+
+PS : Mettez-nous une bonne note svp.
