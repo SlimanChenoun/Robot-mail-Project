@@ -1,22 +1,22 @@
-import numpy as np
-import time
-import matplotlib.pyplot as plt
-import math
-import random
-import heapq
+import numpy as np #pour déclarer la grille en 2d
+import time #comparaison entre dijkstra et A*
+import matplotlib.pyplot as plt #l'affichage de la fenetre de la grille
+import math #formule de math pour la diagonale
+import random #Choisir aléatoirement les lieux de livraisons
+import heapq #pour les fonctions de dijkstra
+import sys #pour utiliser getsizeof
 
-def ajouter_cout_zones(grid, zones):
-    cout_ajoute = np.zeros(grid.shape)
-    for zone in zones:
-        x1, y1, x2, y2, bonus = zone
+def ajoutmalus(grille, z):
+    malus = np.zeros(grille.shape)
+    for x1, y1, x2, y2, bonus in z:
         for i in range(min(x1, x2), max(x1, x2) + 1):
             for j in range(min(y1, y2), max(y1, y2) + 1):
-                if 0 <= i < grid.shape[0] and 0 <= j < grid.shape[1]:
-                    cout_ajoute[i, j] = bonus
-    return cout_ajoute
+                if 0 <= i < grille.shape[0] and 0 <= j < grille.shape[1]:
+                    malus[i, j] = bonus
+    return malus
 
 # Le 0 c'est un obstacle et le 1 un chemin libre
-grid = np.array([ #Je déclare le grid 
+grille = np.array([ #Je déclare le grid 
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 1, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0],
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	1, 0, 1, 1,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0],
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	1, 0, 0, 0,	1, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0],
@@ -91,256 +91,207 @@ grid = np.array([ #Je déclare le grid
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 1, 0, 0,	0, 1, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0],
 [0, 0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 1, 1,	1, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0,	0, 0, 0, 0]
 ])
+ligne, colonne = grille.shape
 
-# Dimensions de la grille
-ROWS, COLS = grid.shape
+n = int(input("Nombre de livraisons : "))
 
-centreville = [
-    (68, 73, 37, 33, 0.25),   # Zone 1: coût bonus de 0.25
-]
-cout_ajoute = ajouter_cout_zones(grid, centreville)
-num_destinations = int(input("Nombre de livraisons : "))
+#Fonction sliman de centre vill et travauxe event
+if input("Centre ville plein de monde? (oui ou non) : ") == "oui":
+    centreville = [(68, 50, 37, 33, float(input("Coefficient de malus : ")))]
+else:
+    centreville = [(0, 0, 0, 0, 0.0)]
 
-# Événement route bouché fonction de Sliman
+malus = ajoutmalus(grille, centreville)
 n_event = int(input("Combien de travaux/évenements à générer?: "))
 for i in range(n_event):
     coordonnee_travaux = input(f"rentrer les coordonné des travaux/events {i+1} (x,y): ")
     x, y = map(int, coordonnee_travaux.split(','))
+    if 0 <= x < ligne and 0 <= y < colonne:
+        grille[x, y] = 0  # Ligne ajoutée
 
+#Fonction de Haemmeryck
+n_event = int(input("Combien de feux à créer?: "))
+feux = []
+for i in range(n_event):
+    # Position du feu
+    coordonnee_feu = input(f"Position feu {i+1} (x,y): ")
+    x, y = map(int, coordonnee_feu.split(','))
+    bonus_feu = float(input(f"Temps feu rouge {i+1}: "))
+    malus[x, y] += bonus_feu  # Toujours malus pour le calcul
+    feux.append((x, y))
 
-# --- déplacement en diagonal avec coûts zones (EN NOMBRE DE CASES) ---
-def deplacement_diagonal(pos, cout_ajoute):
-    x, y = pos
-    directions = [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)]
-    for dx, dy in directions:
+#Déplacement en diagonale 
+def deplacement_diagonal(position, malus):
+    x, y = position
+    for dx, dy in [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)]: #gauche droite haut bas diagonal haut gauche haut droit bas gauche bas droit
         nx, ny = x + dx, y + dy
-        if 0 <= nx < ROWS and 0 <= ny < COLS and grid[nx][ny] == 1:
-            cout_base = 1.0 if dx == 0 or dy == 0 else math.sqrt(2)
-            cout_deplacement = cout_base + cout_ajoute[nx, ny]
-            yield (nx, ny), cout_deplacement
+        if 0 <= nx < ligne and 0 <= ny < colonne and grille[nx][ny] == 1:
+            cout = (1.0 if dx == 0 or dy == 0 else math.sqrt(2)) + malus[nx, ny] #hypoténuse pour déplacement en diagonale
+            yield (nx, ny), cout
 
-# --- Heuristique (distance Manhattan pour coût en cases) ---
-def heuristic(a, b, type="euclidien"):
+def heuristique(a, b, type="euclidien"):
     if type == "manhattan":
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
-    else:
-        return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
-#-- Dijkstra avec heapq
-def dijkstra(depot, goal, cout_ajoute):
-    open_set = []
-    heapq.heappush(open_set, (0, depot))
-    came_from = {}
-    g_score = {depot: 0}
-    explored = 0
-    
-    while open_set:
-        current_cost, current = heapq.heappop(open_set)
-        explored += 1
-
-        if current == goal:
-            # Chemin reconstruit proprement
-            path = []
-            node = goal
-            while node in came_from:
-                path.append(node)
-                node = came_from[node]
-            path.append(depot)
-            path.reverse()
-
-            return path, g_score[goal], explored
-        
-        for neighbor, move_cost in deplacement_diagonal(current, cout_ajoute):
-            tentative_g = g_score.get(current, float('inf')) + move_cost
-            if tentative_g < g_score.get(neighbor, float('inf')):
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g
-                heapq.heappush(open_set, (tentative_g, neighbor))
-    
-    return [], float('inf'), explored
-
-
-# ASTAR avec heapq (corrigé)
-def astar(depot, goal, cout_ajoute, h_type="euclidien"):
-    open_set = []
-    heapq.heappush(open_set, (0, depot))
-    came_from = {}
-    g_score = {depot: 0}
-    explored = 0
+def dijkstra(depot, objectif, malus):
+    open_set = [(0, depot)]
+    noeud = {depot: {'sommes': 0, 'reconstruction': None}}
+    exploré = 0
 
     while open_set:
-        current_f, current = heapq.heappop(open_set)
-        explored += 1
+        _, noeud_actuel = heapq.heappop(open_set)
+        exploré += 1
 
-        if current == goal:
-            path = []
-            node = current  # Utilisation d'une variable temporaire pour reconstruire le chemin
-            while node in came_from:
-                path.append(node)
-                node = came_from[node]
-            path.append(depot)
-            path.reverse()
-            return path, g_score[current], explored
+        if noeud_actuel == objectif:
+            chemin = []
+            while noeud_actuel is not None:
+                chemin.append(noeud_actuel)
+                noeud_actuel = noeud[noeud_actuel]['reconstruction']
+            return chemin[::-1], noeud[chemin[0]]['sommes'], exploré
 
-        for neighbor, move_cost in deplacement_diagonal(current, cout_ajoute):
-            tentative_g = g_score.get(current, float('inf')) + move_cost
-            if tentative_g < g_score.get(neighbor, float('inf')):
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g
-                f_score = tentative_g + heuristic(neighbor, goal, h_type)
-                heapq.heappush(open_set, (f_score, neighbor))
+        for voisin, cout in deplacement_diagonal(noeud_actuel, malus):
+            nouveau_cout = noeud[noeud_actuel]['sommes'] + cout
+            if voisin not in noeud or nouveau_cout < noeud[voisin]['sommes']:
+                noeud[voisin] = {'sommes': nouveau_cout, 'reconstruction': noeud_actuel}
+                heapq.heappush(open_set, (nouveau_cout, voisin))
 
-    return [], float('inf'), explored
+    return exploré
 
+def astar(depot, objectif, malus, typeheuristique="euclidien"):
+    open_set = [(0, depot)]
+    noeud = {depot: {'sommes': 0, 'reconstruction': None}}
+    exploré = 0
 
+    while open_set:
+        _, noeud_actuel = heapq.heappop(open_set)
+        exploré += 1
 
-# -----------------------------
-# Planification gloutonne multi-colis
-# -----------------------------
-def glouton(depot, destinations, cout_ajoute, algo="astar", h_type="euclidien"):
-    current = depot
-    order = []
-    total_path = []
-    total_cost = 0
-    total_explored = 0
+        if noeud_actuel == objectif:
+            chemin = []
+            while noeud_actuel is not None:
+                chemin.append(noeud_actuel)
+                noeud_actuel = noeud[noeud_actuel]['reconstruction']
+            return chemin[::-1], noeud[chemin[0]]['sommes'], exploré
 
-    remaining = destinations.copy()
+        for voisin, cout in deplacement_diagonal(noeud_actuel, malus):
+            nouveau_cout = noeud[noeud_actuel]['sommes'] + cout
+            if voisin not in noeud or nouveau_cout < noeud[voisin]['sommes']:
+                noeud[voisin] = {'sommes': nouveau_cout, 'reconstruction': noeud_actuel}
+                f_score = nouveau_cout + heuristique(voisin, objectif, typeheuristique)
+                heapq.heappush(open_set, (f_score, voisin))
 
-    while remaining:
-        best = None
-        best_cost = float('inf')
-        best_path = []
-        best_explored = 0
+    return [], float('inf'), exploré
 
-        for d in remaining:
+def glouton(depot, destinations, malus, algo="astar", typeheuristique="euclidien"): #glouton utiliser avec l'algoritme de astar en euclidien
+    noeud_actuel = depot
+    ordre = []
+    chemintotal = []
+    cout_total = 0
+    exploré_total = 0
+    pasvisiter = destinations.copy()
+
+    while pasvisiter:
+        meilleur = None
+        meilleur_cout = float('inf')
+        meilleur_chemin = []
+        exploré_meilleur = 0
+
+        for d in pasvisiter:
             if algo == "dijkstra":
-                path, cost, explored = dijkstra(current, d, cout_ajoute)
+                chemin, cout, exploré = dijkstra(noeud_actuel, d, malus)
             else:
-                path, cost, explored = astar(current, d, cout_ajoute, h_type)
-            if path and cost < best_cost:
-                best = d
-                best_cost = cost
-                best_path = path
-                best_explored = explored
+                chemin, cout, exploré = astar(noeud_actuel, d, malus, typeheuristique)
+            if chemin and cout < meilleur_cout:
+                meilleur = d
+                meilleur_cout = cout
+                meilleur_chemin = chemin
+                exploré_meilleur = exploré
 
-        if best is None:
-            print(f"Avertissement: Impossible d'atteindre certaines destinations depuis {current}")
-            break
+        if meilleur:
+            pasvisiter.remove(meilleur)
+            ordre.append(meilleur)
+            chemintotal.extend(meilleur_chemin[:-1])
+            cout_total += meilleur_cout
+            exploré_total += exploré_meilleur
+            noeud_actuel = meilleur
 
-        remaining.remove(best)
-        order.append(best)
-        total_path.extend(best_path[:-1])
-        total_cost += best_cost
-        total_explored += best_explored
-        current = best
-
-    # retour au dépôt
-    if order:  # seulement si on a visité au moins une destination
+    if ordre:
         if algo == "dijkstra":
-            path, cost, explored = dijkstra(current, depot, cout_ajoute)
+            chemin, cout, exploré = dijkstra(noeud_actuel, depot, malus)
         else:
-            path, cost, explored = astar(current, depot, cout_ajoute, h_type)
-        if path:
-            total_path.extend(path)
-            total_cost += cost
-            total_explored += explored
+            chemin, cout, exploré = astar(noeud_actuel, depot, malus, typeheuristique)
+        if chemin:
+            chemintotal.extend(chemin)
+            cout_total += cout
+            exploré_total += exploré
 
-    return order, total_path, total_cost, total_explored
+    return ordre, chemintotal, cout_total, exploré_total
 
-def compare_algorithms(depot, destinations, cout_ajoute):
-    results = {}
+def compare_algorithms(depot, destinations, malus):
+    resultats = {}
+    algorithmes = [ # dictionnaire de mots utiliser pour affichage du prompt
+        ("dijkstra", "dijkstra", None), 
+        ("astar euclidienne", "astar", "euclidien"),
+        ("astar de manhattan", "astar", "manhattan")
+    ]
 
-    # Dijkstra
-    t0 = time.time()
-    order, path, cost, explored = glouton(depot, destinations.copy(), cout_ajoute, "dijkstra")
-    t1 = time.time()
-    results["dijkstra"] = {
-        "ordre": order,
-        "trajet": path,
-        "longueur": cost,
-        "temps": t1 - t0,
-        "explorés": explored
-    }
+    for nom, algo, heur in algorithmes:
+        t0 = time.time()
+        ordre, trajet, cout, exploré = glouton(depot, destinations.copy(), malus, algo, heur)
+        t1 = time.time()
+        resultats[nom] = {
+            "ordre": ordre,
+            "trajet": trajet,
+            "longueur": cout,
+            "temps": t1 - t0,
+            "explorés": exploré
+        }
 
-    # A* euclidien
-    t0 = time.time()
-    order, path, cost, explored = glouton(depot, destinations.copy(), cout_ajoute, "astar", "euclidien")
-    t1 = time.time()
-    results["astar_euclidean"] = {
-        "ordre": order,
-        "trajet": path,
-        "longueur": cost,
-        "temps": t1 - t0,
-        "explorés": explored
-    }
+    return resultats
 
-    # A* manhattan
-    t0 = time.time()
-    order, path, cost, explored = glouton(depot, destinations.copy(), cout_ajoute, "astar", "manhattan")
-    t1 = time.time()
-    results["astar_manhattan"] = {
-        "ordre": order,
-        "trajet": path,
-        "longueur": cost,
-        "temps": t1 - t0,
-        "explorés": explored
-    }
-
-    return results
-
-def afficher_comparaison(results):
-    for algo, r in results.items():
-        print(f"🔹 {algo.upper()}")
+def afficher_comparaison(resultats): #infos afficher pour chaque types d'algo
+    for algo, r in resultats.items():
+        print(f"\n{algo.upper()}")
         print(f"Ordre de visite: {r['ordre']}")
         print(f"Longueur totale: {r['longueur']:.2f}")
         print(f"Nœuds explorés: {r['explorés']}")
         print(f"Temps d'exécution: {r['temps']:.5f} sec\n")
 
-# --- Sélection des destinations ---
-free_cells = [(i,j) for i in range(ROWS) for j in range(COLS) if grid[i][j] == 1]
-# Point de départ - NE PAS CHANGER
+cellulechemin = [(i,j) for i in range(ligne) for j in range(colonne) if grille[i][j] == 1]
 depot = (55, 0)
 
-# Sélection aléatoire des destinations parmi les cases libres
-destinations = random.sample([cell for cell in free_cells if cell != depot], min(num_destinations, len(free_cells)-1))
+destinations = random.sample([cell for cell in cellulechemin if cell != depot], min(n, len(cellulechemin)-1))
+ordre, trajet, cout, exploré = glouton(depot, destinations, malus, "astar", "euclidien")
 
-print(f"\nDépôt: {depot}")
-print(f"Nombre de destinations: {len(destinations)}")
-print(f"Destinations: {destinations}")
+resultats = compare_algorithms(depot, destinations, malus)
+afficher_comparaison(resultats)
 
-results = compare_algorithms(depot, destinations, cout_ajoute)
-afficher_comparaison(results)
+ordre, trajet, cout, exploré = glouton(depot, destinations, malus, "astar", "euclidien")
 
-# Appel de la stratégie gloutonne avec A* (heuristique euclidienne)
-optimal_order, optimal_path, total_cost, explored = glouton(depot, destinations, cout_ajoute, "astar", "euclidien")
-
-# --- Affichage du chemin ---
 fig, ax = plt.subplots(figsize=(12, 10))
-ax.imshow(grid, cmap='gray')
-# Zones bonus
-for zone in centreville:
-    x1, y1, x2, y2, bonus = zone
-    ax.add_patch(plt.Rectangle((min(y1, y2) - 0.5, min(x1, x2) - 0.5),
-                               abs(y2 - y1) + 1, abs(x2 - x1) + 1,
-                               color='orange', alpha=0.3))
-# Chemin complet
-for (x, y) in optimal_path:
+ax.imshow(grille, cmap='gray')
+ax.add_patch(plt.Rectangle((y - 0.5, x - 0.5), 1, 1, color='blue'))
+
+for x1, y1, x2, y2, bonus in centreville: #modélisation du centre ville 
+    ax.add_patch(plt.Rectangle((min(y1, y2) - 0.5, min(x1, x2) - 0.5), 
+    abs(y2 - y1) + 1, abs(x2 - x1) + 1, 
+    color='orange', alpha=0.3))
+
+for x, y in trajet:
     ax.add_patch(plt.Rectangle((y - 0.5, x - 0.5), 1, 1, color='yellow', alpha=0.6))
-# Départ
-ax.add_patch(plt.Rectangle((depot[1] - 0.5, depot[0] - 0.5), 1, 1, color='green'))
-# Destinations
-for i, dest in enumerate(optimal_order):
+    ax.add_patch(plt.Rectangle((depot[1] - 0.5, depot[0] - 0.5), 1, 1, color='green'))#modélisation du dépot sur la carte
+
+for i, dest in enumerate(ordre):
     ax.add_patch(plt.Rectangle((dest[1] - 0.5, dest[0] - 0.5), 1, 1, color='red'))
     ax.text(dest[1], dest[0], str(i + 1), ha='center', va='center',
             fontweight='bold', fontsize=8, color='white')
-plt.xticks([])
-plt.yticks([])
 
-# Résumé console
-print("\nRésumé du parcours :")
+print("\nRésumé du parcours :")#affichage dans le prompt des infos
 print(f"Depot: {depot}")
-print(f"Ordre de visite: {optimal_order}")
-print(f"Cout total : {total_cost:.2f} cases")
-print(f"Nœuds explorés : {explored}")
-
+print(f"Ordre de visite: {ordre}")
+print(f"Cout total : {cout:.2f} cases")
+print(f"Nœuds explorés : {exploré}")
+print("Taille d'un 0 (en octets):", sys.getsizeof(0))
+print("Taille d'un 1 (en octets):", sys.getsizeof(1))
 plt.show()
